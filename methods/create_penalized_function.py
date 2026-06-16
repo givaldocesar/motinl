@@ -1,4 +1,5 @@
 import sympy as sp
+from utils import is_valid_vars
 
 def create_penalized_function(equation_expression, var_x, var_y, restrictions_str=[], weight=10000):
     penalty_expression = equation_expression
@@ -9,11 +10,7 @@ def create_penalized_function(equation_expression, var_x, var_y, restrictions_st
         if "=" in restrict_str and "==" not in restrict_str and "<=" not in restrict_str and ">=" not in restrict_str:
             restrict_str = restrict_str.replace("=", "==")
 
-        relationship = sp.sympify(restrict_str)
-        rlt_vars = relationship.free_symbols
-        
-        if not rlt_vars.issubset(allowed_vars):
-            raise ValueError(f"A restrição {restrict_str} possui variáveis diferentes da função objetivo ({equation_expression}).")
+        relationship = is_valid_vars(equation_expression, allowed_vars, restrict_str)
 
         if hasattr(relationship, 'lhs') and hasattr(relationship, 'rhs'):
             lhs = relationship.lhs

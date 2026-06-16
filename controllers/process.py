@@ -1,7 +1,9 @@
 import time, traceback
 import numpy as np
-from utils import numpifyFunction, Camera
-from methods import (Methods, create_penalized_function, create_barried_function, direcoes_aleatorias, gradiente)
+import sympy as sp
+from utils import numpifyFunction, Camera, is_valid_vars
+from methods import (Methods, create_penalized_function, create_barried_function, 
+                     direcoes_aleatorias, gradiente)
 from exceptions import ProcessException, StopException
 from .events import EVENTS
 
@@ -38,6 +40,33 @@ class Process:
     def set_running(self, is_running):
         self._is_running = is_running
 
+    def validate_initial_point(self, var_x, var_y):
+        if (self._data and 
+            self._data["restriction_method"] == "barriers" and 
+            len(self._data['restrictions']) > 0):
+            
+            x0_values = self._data['x0']
+            
+            subs_dict = {var_x: x0_values[0]}
+            if len(x0_values) > 1:
+                subs_dict[var_y] = x0_values[1]
+
+            for restrict_str in self._data['restrictions']:
+                check_str = restrict_str.replace(">=", ">").replace("<=", "<")
+                
+                if "=" in check_str and "==" not in check_str and "<=" not in check_str and ">=" not in check_str:
+                    raise ProcessException("O Método das Barreiras requer um 'interior'. Não use restrições de igualdade (==).")
+                    
+                relationship = is_valid_vars(self._data["expression"], {var_x, var_y}, check_str) 
+                is_inside = relationship.subs(subs_dict)
+                
+                if not is_inside: 
+                    raise ProcessException(
+                        f"Erro de Ponto Inicial!\n"
+                        f"O Método das Barreiras exige que o ponto X0 esteja ESTRITAMENTE DENTRO da região viável.\n"
+                        f"O ponto {x0_values} viola a restrição: '{restrict_str}'."
+                    )
+        
     def setup(self):
         generator = None
 
@@ -57,6 +86,8 @@ class Process:
                 })
               
             _, expression, var_x, var_y = numpifyFunction(expression_str)
+
+            self.validate_initial_point(var_x, var_y)
 
             # Método de Restrição -----------------------------------------------------------------------------------------------------------
             if self._data["restriction_method"] == "barriers":
